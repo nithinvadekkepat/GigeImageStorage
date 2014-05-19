@@ -1,4 +1,14 @@
 function getCamImage()
+close all;clear all;
+imaqreset;
+date = datestr(clock,'mm-dd-yy');
+ret = exist(date);
+if ~ret
+    mkdir(date);
+end
+currentPath = pwd;
+writePath = strcat(currentPath,'\',date);    
+
 mainFig = figure('position',[100 60 1200 650 ],'MenuBar','none','name',...
     'Gige Camera Acquisition','NumberTitle','off','Resize','off');
 logoAxes = axes('Parent',mainFig,'Units', 'normalized','Position',[0.02 0.88 0.1 0.1],'Visible','on');
@@ -19,9 +29,9 @@ uicontrol('Style','pushbutton','Parent', mainFig,'Units','normalized',...
     'Callback', @processButtonCallBack);
 camAxes =  axes('Parent',mainFig,'Units', 'normalized','Position',[0.02 0.2 0.4 0.6],'Visible','on');
 
-acqAxes =  axes('Parent',mainFig,'Units', 'normalized','Position',[0.5 0.2 0.4 0.6],'Visible','on');
+acqAxes =  axes('Parent',mainFig,'Units', 'normalized','Position',[0.5 0.2 0.4 0.6],'Visible','off');
 set(gcf, 'units','normalized','outerposition',[0 0 1 1]);
-vid = videoinput('winvideo',1);
+vid = videoinput('winvideo',2);
 vid.FramesPerTrigger = 1;
 vid.ReturnedColorspace = 'rgb';
 triggerconfig(vid, 'manual');
@@ -31,13 +41,12 @@ imHeight = vidRes(2);
 nBands = get(vid, 'NumberOfBands');
 backBuffer = 5;
 background = zeros(imHeight,imWidth);
-blobObj = vision.BlobAnalysis;
-
+blobObj = vision.BlobAnalysis('AreaOutputPort',1,'MinimumBlobArea',1000);
+set(mainFig,'CurrentAxes',camAxes)
+hImage = image(zeros(imHeight, imWidth, nBands));
 
 
     function startCamButtonCallBack(src, eventdata)
-        set(mainFig,'CurrentAxes',camAxes)
-        hImage = image(zeros(imHeight, imWidth, nBands));
         preview(vid,hImage)
         axis image
         axis tight
@@ -51,14 +60,26 @@ blobObj = vision.BlobAnalysis;
         background = mean(framegrabber,3);       
     end
     function processButtonCallBack(src,eventdata)
-        frame = getsnapshot(vid);
-        foreground =
+       setappdata(hImage,'UpdatePreviewWindowFcn',@update_get_object);
     end
     function update_get_object(obj,event,hImage)
         currentFrame = event.Data;
-        foreground = abs(background - currentframe);
-        binarybackground = im2bw(foreground);
-        area = AreaOutputPort
+        background = double(background);
+        currentFrame = double(rgb2gray(currentFrame));
+        foreground = abs(background - currentFrame);
+        binaryBackground = (foreground > 15);
+        set(mainFig,'CurrentAxes',acqAxes)
+        imshow(binaryBackground);
+        drawnow
+        area = step(blobObj,binaryBackground);
+        
+        if numel(area) > 1 || area(1) > 50000
+            errordlg('remove hand')
+        else 
+%             timestamp = datestr(clock,'HH_MM_SS');
+%             imwrite(currentFrame,fullfile(writePath,strcat(timestamp,'.jpg')));
+        end
+        
         
     end
 end
